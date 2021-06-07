@@ -7,33 +7,41 @@
     /**
      * 基类数据
      */
-    class BaseData {
-    }
+    var BaseData = /** @class */ (function () {
+        function BaseData() {
+        }
+        return BaseData;
+    }());
 
     /**
      * 对象代理类
      */
-    class ObjectProxy {
-    }
+    var ObjectProxy = /** @class */ (function () {
+        function ObjectProxy() {
+        }
+        return ObjectProxy;
+    }());
 
     /**
      * 仓库数据代理
      */
-    class StorageDataProxy {
+    var StorageDataProxy = /** @class */ (function () {
         /** 初始化 */
-        constructor() { }
-    }
+        function StorageDataProxy() {
+        }
+        return StorageDataProxy;
+    }());
 
     /**
      * 仓库代理
      */
     var Main = {
         /** 基类数据 */
-        BaseData,
+        BaseData: BaseData,
         /** 对象代理类 */
-        ObjectProxy,
+        ObjectProxy: ObjectProxy,
         /** 仓库数据代理 */
-        StorageDataProxy,
+        StorageDataProxy: StorageDataProxy,
     };
 
     return Main;
