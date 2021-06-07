@@ -1,0 +1,24 @@
+{
+  "name": "storage-proxy",
+  "version": "1.0.0",
+  "description": "对本地数据保存的一层封装，把关注点转移到业务逻辑上，而不用管数据是怎么保存的。",
+  "main": "./dist/index.js",
+  "types": "./dist/Main.d.ts",
+  "scripts": {
+    "rollup-compile": "rollup -c --watch"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com.cnpmjs.org/yayaluoya/storage-proxy.git"
+  },
+  "author": "https://github.com/yayaluoya",
+  "license": "ISC",
+  "devDependencies": {
+    "@rollup/plugin-node-resolve": "^13.0.0",
+    "rollup": "^2.51.0",
+    "rollup-plugin-commonjs": "^10.1.0",
+    "rollup-plugin-typescript2": "^0.30.0",
+    "typescript": "^4.3.2"
+  },
+  "dependencies": {}
+}
