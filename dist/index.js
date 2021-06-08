@@ -154,7 +154,7 @@
         /** 配合获取代理对象，深度优先获取 */
         ObjectProxy.prototype._getProxy = function (_item) {
             var _this_1 = this;
-            if (typeof _item == 'object') {
+            if (_item && typeof _item == 'object') {
                 if (!Array.isArray(_item)) {
                     for (var _i in _item) {
                         _item[_i] = this._getProxy(_item[_i]);
@@ -191,7 +191,7 @@
                 return;
             }
             //如果目标值是对象的话就获取它的代理
-            if (typeof value == 'object') {
+            if (value && typeof value == 'object') {
                 value = this.getProxy(value);
             }
             //处理监听回调
@@ -313,6 +313,86 @@
     }());
 
     /**
+     * 运行时数据代理
+     */
+    var RuntimeDataProxy = /** @class */ (function (_super) {
+        __extends(RuntimeDataProxy, _super);
+        function RuntimeDataProxy() {
+            return _super !== null && _super.apply(this, arguments) || this;
+        }
+        return RuntimeDataProxy;
+    }(BaseDataProxy));
+
+    /**
+     * 本地数据版本管理工具
+     */
+    var LSDataVMT = /** @class */ (function () {
+        function LSDataVMT() {
+        }
+        /**
+         * 获取版本
+         * @param _name 数据名字
+         * @param _dV 默认值
+         */
+        LSDataVMT.getV = function (_name, _dV) {
+            var _data = this.getData();
+            //如果不存在的话就保存一个副本
+            if (!_data[_name]) {
+                _data[_name] = _dV();
+                this.saveData(_data);
+            }
+            return _data[_name];
+        };
+        /**
+         * 设置版本
+         * @param _name 数据名字
+         * @param _v 版本信息
+         */
+        LSDataVMT.setV = function (_name, _v) {
+            var _data = this.getData();
+            _data[_name] = _v;
+            this.saveData(_data);
+        };
+        /**
+         * 对比版本信息
+         * @param _a a版本信息
+         * @param _b b版本信息
+         */
+        LSDataVMT.contrastV = function (_a, _b) {
+            return _a.code == _b.code && _a.confuse == _b.confuse;
+        };
+        /** 获取一份混淆字符串 */
+        LSDataVMT.getConfuse = function () {
+            return '';
+        };
+        /** 获取本地数据 */
+        LSDataVMT.getData = function () {
+            var _data;
+            var _dataStr = localStorage.getItem(this.m_name);
+            if (_dataStr) {
+                try {
+                    _data = JSON.parse(atob(_dataStr));
+                }
+                catch (e) {
+                    _data = {};
+                }
+            }
+            else {
+                _data = {};
+            }
+            return _data;
+        };
+        /** 保存数据 */
+        LSDataVMT.saveData = function (_data) {
+            //保存
+            localStorage.setItem(this.m_name, btoa(JSON.stringify(_data)));
+        };
+        /** 数据名字 */
+        LSDataVMT.m_name = btoa('LSDataVMT');
+        return LSDataVMT;
+    }());
+
+    /**
      * 本地数据代理
      */
     var LocalStorageDataProxy = /** @class */ (function (_super) {
@@ -322,10 +402,17 @@
             var _this = _super.call(this) || this;
             /** 是否使用数据代理工具 */
             _this.ifUseObjectProxyT = true;
-            /** 保存次数 */
-            _this.m_saveNumber = 0;
+            /** 数据变化次数 */
+            _this.m_dataChangeNumber = 0;
             //
             _this.m_saveName = btoa(_this._saveName);
+            //获取版本
+            _this.m_versions = LSDataVMT.getV(_this.m_saveName, function () {
+                return {
+                    code: 1,
+                    confuse: LSDataVMT.getConfuse(),
+                };
+            });
             return _this;
         }
         Object.defineProperty(LocalStorageDataProxy.prototype, "_saveName", {
@@ -338,8 +425,17 @@
         });
         //
         LocalStorageDataProxy.prototype._init = function () {
+            var _this = this;
             //添加数据改动监听
             this.objectProxyT.addMonitor(this, this.dataChange);
+            //添加一个更新方法
+            var _f = function () {
+                //执行更新方法
+                _this.update();
+                //
+                requestAnimationFrame(_f);
+            };
+            _f();
         };
         //重写父类的_initData方法
         LocalStorageDataProxy.prototype._initData = function () {
@@ -347,31 +443,78 @@
         };
         /** 数据变化回调 */
         LocalStorageDataProxy.prototype.dataChange = function () {
-            this.save();
+            this.m_dataChangeNumber++;
+        };
+        /** 每帧更新 */
+        LocalStorageDataProxy.prototype.update = function () {
+            //执行回调
+            this._update();
+            //
+            var _ifSaveData = this.m_dataChangeNumber > 0;
+            this.m_dataChangeNumber = 0;
+            //同步数据
+            this.syncData();
+            //保存数据
+            if (_ifSaveData) {
+                this._saveData(this.data);
+            }
         };
         /**
          * 保存数据
-         * @param _ifCurrent 是否限流，如果为true的话则每次宏任务只会执行一次
+         * * 当数据必须立即保存时调用
          */
-        LocalStorageDataProxy.prototype.save = function (_ifCurrent) {
-            var _this = this;
-            if (_ifCurrent === void 0) { _ifCurrent = true; }
-            if (_ifCurrent) {
-                this.m_saveNumber++;
-                Promise.resolve().then(function () {
-                    _this.m_saveNumber--;
-                    if (_this.m_saveNumber == 0) {
-                        _this._save(_this.data);
-                    }
-                });
-            }
-            else {
-                this._save(this.data);
-            }
+        LocalStorageDataProxy.prototype.saveData = function () {
+            this._saveData(this.data);
         };
         /** 保存数据 */
-        LocalStorageDataProxy.prototype._save = function (_data) {
+        LocalStorageDataProxy.prototype._saveData = function (_data) {
+            // console.log('保存数据');
             localStorage.setItem(this.m_saveName, this._encrypt(JSON.stringify(_data)));
+            //更新版本，累加版本号，获取一个随机的混淆字符串
+            this.m_versions.code++;
+            this.m_versions.confuse = LSDataVMT.getConfuse();
+            LSDataVMT.setV(this.m_saveName, this.m_versions);
+        };
+        /** 同步数据 */
+        LocalStorageDataProxy.prototype.syncData = function () {
+            var _this = this;
+            var _v = LSDataVMT.getV(this.m_saveName, function () {
+                return _this.m_versions;
+            });
+            //判断版本
+            if (!LSDataVMT.contrastV(this.m_versions, _v)) {
+                //同步版本
+                this.m_versions = _v;
+                //同步数据
+                var _data = JSON.parse(this._decode(localStorage.getItem(this.m_saveName)));
+                this._syncData(this.data, _data);
+            }
+        };
+        /** 配合遍历同步数据 */
+        LocalStorageDataProxy.prototype._syncData = function (a, b) {
+            // console.log('同步数据', a, b);
+            var _anchor = a;
+            var _aKey = [];
+            var _bKey = [];
+            for (var i in a) {
+                _aKey.push(i);
+            }
+            for (var i in b) {
+                _bKey.push(i);
+            }
+            if (_bKey.length > _aKey.length) {
+                _anchor = b;
+            }
+            for (var i in _anchor) {
+                if (a[i] && typeof a[i] == 'object') {
+                    this._syncData(a[i], b[i]);
+                }
+                else {
+                    if (a[i] != b[i]) {
+                        a[i] = b[i];
+                    }
+                }
+            }
         };
         /** 获取本地数据 */
         LocalStorageDataProxy.prototype.getLocalStorageData = function () {
@@ -386,7 +529,7 @@
                 __data = JSON.parse(this._decode(_dataStr));
             }
             catch (e) {
-                this._save(_data);
+                this._saveData(_data);
             }
             if (__data) {
                 //根据定义的数据来获取本地的数据
@@ -399,20 +542,22 @@
         };
         /**
          * 加密
-         * 重写覆盖，默认返回的原字符串
+         * 重写覆盖，默认使用base64
          * @param _str 需要加密的字符串
          */
         LocalStorageDataProxy.prototype._encrypt = function (_str) {
-            return _str;
+            return btoa(_str);
         };
         /**
          * 解密
-         * 重写覆盖，默认返回原字符串
+         * 重写覆盖，默认使用base64
          * @param _str 加密的字符串
          */
         LocalStorageDataProxy.prototype._decode = function (_str) {
-            return _str;
+            return atob(_str);
         };
+        /** 每帧更新回调 */
+        LocalStorageDataProxy.prototype._update = function () { };
         return LocalStorageDataProxy;
     }(BaseDataProxy));
 
@@ -446,8 +591,23 @@
         //
         TestLSData.prototype.addMonitor = function () {
             this.objectProxyT.addMonitor(this, function () {
-                console.log('数组被设置');
-            }, this.data, 'array');
+                console.log('根数据发生变化');
+            }, this.data);
+            this.objectProxyT.addMonitor(this, function () {
+                console.log('number数据发生变化');
+            }, this.data, 'number');
+            this.objectProxyT.addMonitor(this, function () {
+                console.log('boolean数据发生变化');
+            }, this.data, 'boolean');
+            this.objectProxyT.addMonitor(this, function () {
+                console.log('string数据发生变化');
+            }, this.data, 'string');
+            this.objectProxyT.addMonitor(this, function () {
+                console.log('对象发生变化');
+            }, this.data.object);
+            this.objectProxyT.addMonitor(this, function () {
+                console.log('对象属性a发生变化');
+            }, this.data.object, 'a');
             this.objectProxyT.addMonitor(this, function () {
                 console.log('数组发生变化');
             }, this.data.array);
@@ -456,9 +616,10 @@
     }(LocalStorageDataProxy));
     var _data = new TestLSData();
     _data.init();
+    _data.addMonitor();
     _data.data.number++;
-    console.log(_data);
     window['dataTest'] = _data;
+    console.log(_data);
 
     /**
      * 仓库代理
@@ -466,6 +627,8 @@
     var Main = {
         /** 仓库数据代理 */
         LocalStorageDataProxy: LocalStorageDataProxy,
+        /** 运行时数据代理，不需要保存到本地的数据 */
+        RuntimeDataProxy: RuntimeDataProxy,
     };
 
     return Main;

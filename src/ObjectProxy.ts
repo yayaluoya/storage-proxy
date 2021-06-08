@@ -134,7 +134,7 @@ export default class ObjectProxy {
     }
     /** 配合获取代理对象，深度优先获取 */
     private _getProxy(_item: any): any {
-        if (typeof _item == 'object') {
+        if (_item && typeof _item == 'object') {
             if (!Array.isArray(_item)) {
                 for (let _i in _item) {
                     _item[_i] = this._getProxy(_item[_i]);
@@ -169,7 +169,7 @@ export default class ObjectProxy {
         //如果是数组的length属性变化的话则抛弃这次的回调
         if (Array.isArray(target) && p == 'length') { return; }
         //如果目标值是对象的话就获取它的代理
-        if (typeof value == 'object') {
+        if (value && typeof value == 'object') {
             value = this.getProxy(value);
         }
         //处理监听回调

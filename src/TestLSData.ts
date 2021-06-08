@@ -24,8 +24,23 @@ export default class TestLSData extends LocalStorageDataProxy<Data__> {
     //
     public addMonitor() {
         this.objectProxyT.addMonitor(this, () => {
-            console.log('数组被设置');
-        }, this.data, 'array');
+            console.log('根数据发生变化');
+        }, this.data);
+        this.objectProxyT.addMonitor(this, () => {
+            console.log('number数据发生变化');
+        }, this.data, 'number');
+        this.objectProxyT.addMonitor(this, () => {
+            console.log('boolean数据发生变化');
+        }, this.data, 'boolean');
+        this.objectProxyT.addMonitor(this, () => {
+            console.log('string数据发生变化');
+        }, this.data, 'string');
+        this.objectProxyT.addMonitor(this, () => {
+            console.log('对象发生变化');
+        }, this.data.object);
+        this.objectProxyT.addMonitor(this, () => {
+            console.log('对象属性a发生变化');
+        }, this.data.object, 'a' as any);
         this.objectProxyT.addMonitor(this, () => {
             console.log('数组发生变化');
         }, this.data.array);
@@ -34,8 +49,8 @@ export default class TestLSData extends LocalStorageDataProxy<Data__> {
 
 let _data = new TestLSData()
 _data.init();
+_data.addMonitor();
 
 _data.data.number++;
-
-console.log(_data);
 window['dataTest'] = _data;
+console.log(_data);
